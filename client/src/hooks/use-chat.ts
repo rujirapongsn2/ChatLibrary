@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { generateAIResponse, searchBooksLocal } from "@/lib/chat-utils";
 import { mockBooks } from "@/lib/mock-data";
 import type { ChatMessage, Book } from "@shared/schema";
 
@@ -51,8 +50,7 @@ export function useChat() {
     }
   });
 
-  const sendMessage = useCallback(async (messageText: string, language: 'en' | 'th' = 'en') => {
-    // Add user message immediately
+  const sendMessage = useCallback(async (messageText: string) => {
     const userMessage: ExtendedChatMessage = {
       id: Date.now(),
       userId: 1,
@@ -64,34 +62,39 @@ export function useChat() {
     setMessages(prev => [...prev, userMessage]);
     setIsTyping(true);
 
-    // Search for relevant books
-    const relevantBooks = searchBooksLocal(messageText, books);
-    
-    // Generate AI response
-    setTimeout(() => {
-      const aiResponseText = generateAIResponse(messageText, language, relevantBooks);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: messageText }),
+      });
+      const aiData = await response.json();
       
       const aiMessage: ExtendedChatMessage = {
         id: Date.now() + 1,
         userId: 1,
-        message: aiResponseText,
+        message: aiData.answer,
         isUser: false,
         createdAt: new Date(),
-        books: relevantBooks.length > 0 ? relevantBooks.slice(0, 5) : undefined
       };
       
       setMessages(prev => [...prev, aiMessage]);
-      setIsTyping(false);
-    }, 1500);
-
-    // Persist to backend (optional)
-    try {
-      await sendMessageMutation.mutateAsync({ message: messageText, isUser: true });
-      await sendMessageMutation.mutateAsync({ message: generateAIResponse(messageText, language, relevantBooks), isUser: false });
     } catch (error) {
-      console.error('Failed to persist messages:', error);
+      console.error('Failed to get AI response:', error);
+      const errorMessage: ExtendedChatMessage = {
+        id: Date.now() + 1,
+        userId: 1,
+        message: "Sorry, I'm having trouble connecting to the AI service.",
+        isUser: false,
+        createdAt: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
     }
-  }, [books, sendMessageMutation]);
+  }, []);
 
   const borrowBook = useCallback(async (bookId: number) => {
     try {
@@ -123,9 +126,8 @@ export function useChat() {
   }, [returnBookMutation]);
 
   const searchBooks = useCallback(async (query: string) => {
-    const results = searchBooksLocal(query, books);
-    return results;
-  }, [books]);
+    return [];
+  }, []);
 
   const getUserBorrowings = useCallback(async () => {
     try {

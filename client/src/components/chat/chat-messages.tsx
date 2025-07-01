@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
 import BookCard from "./book-card";
 import TypingIndicator from "./typing-indicator";
 import type { ChatMessage, Book } from "@shared/schema";
@@ -78,9 +79,9 @@ export default function ChatMessages({ messages, isTyping, onBorrowClick, langua
                 ? 'bg-muted-blue rounded-2xl rounded-tr-md px-4 py-3 text-white ml-auto' 
                 : 'bg-white rounded-2xl rounded-tl-md px-4 py-3 shadow-sm border max-w-2xl'
             }`}>
-              <p className={message.isUser ? 'text-white' : 'text-gray-800'}>
-                {message.message}
-              </p>
+              <div className={message.isUser ? 'text-white' : 'text-gray-800'}>
+                <ReactMarkdown>{message.message}</ReactMarkdown>
+              </div>
               
               {/* Book Results */}
               {message.books && message.books.length > 0 && (
